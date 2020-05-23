@@ -235,7 +235,7 @@ class InvertedPendulum(EnvAnimate):
         V_x, PI_policy = v, policy
         return V_x, PI_policy,
     
-    def generate_trajectory(self, in_loc, init_state, policy, t,states,tau,P,n_states):
+    def generate_trajectory(self, in_loc, init_state, policy, t,states,tau,P,n_states,U):
         print('Generating Trajectory')
         loc=in_loc
         angle=[]
@@ -246,13 +246,17 @@ class InvertedPendulum(EnvAnimate):
             angle.append(theta)
 
             u1= policy[loc]
-            ctrl.append(u1)
+            ctrl.append(U[u1])
     
             loc=np.random.choice(range(n_states),1,p=(P[loc,:,u1]))[0]
+        
+        f=interp1d(range(len(ctrl)),ctrl,kind='cubic',fill_value="extrapolate")
+        ctrl_cont=np.linspace(0,len(ctrl),1000)
 
-            # interp1d(np.arange(0,time,tau),)
+        f2=interp1d(range(len(angle)),angle,kind='cubic',fill_value="extrapolate")
+        angle_cont=np.linspace(0,len(angle),1000)
         # theta, u = f_theta(w), f_u(w)
-        theta,u= angle,ctrl
+        theta,u= f2(angle_cont),f(ctrl_cont)
         return theta, u
     
 
@@ -266,9 +270,9 @@ if __name__ == '__main__':
     u_max= 3
     # goal=np.zeros((0,0))
 
-    n_u=30 # Num of controlls workred: 10
-    n1= 30  #30  #101  # 101# 151 #101 # x1 discreet angle worked: 101, 151
-    n2= 40  #30#101 # 31#41   #round ((tau*(2*v_max))/((2*np.pi)/n1))+1 # x2 discreet. worked= 31,41
+    n_u=29 # Num of controlls workred: 10
+    n1= 29  #30  #101  # 101# 151 #101 # x1 discreet angle worked: 101, 151
+    n2= 29  #30#101 # 31#41   #round ((tau*(2*v_max))/((2*np.pi)/n1))+1 # x2 discreet. worked= 31,41
     k=4 # damping ratio, 0.1
     r=0.01 #, 1
     a=1 # g/L, 1
@@ -280,7 +284,7 @@ if __name__ == '__main__':
     cov=np.diag([0.001,0.001])
     # sigma=np.array([[0.1],[0.1]])
     dist=0.0
-    init_state=np.array([np.pi,0])
+    init_state=np.array([np.pi/2,0])
     goal=[0,0]
 
     # FLAGS to select the type of algorithm. Set the choice to 1 and the other to 0
@@ -317,12 +321,12 @@ if __name__ == '__main__':
     P,L=inv_pendulum.Build_MDP(x1,x2,U,cov,state_space)
     
     VI_V, VI_policy = inv_pendulum.value_iteration(P,L,x1,x2,gamma)
-    theta_vi, u_vi = inv_pendulum.generate_trajectory(in_loc,init_state,VI_policy,10,state_space,tau,P,(n1*n2))
+    theta_vi, u_vi = inv_pendulum.generate_trajectory(in_loc,init_state,VI_policy,10,state_space,tau,P,(n1*n2),U)
     inv_pendulum.load_trajectory(theta_vi, u_vi)
     inv_pendulum.start()
 
     PI_V, PI_policy = inv_pendulum.policy_iteration(P,L,x1,x2,U,gamma)
-    theta_pi, u_pi = inv_pendulum.generate_trajectory(in_loc,init_state,PI_policy,10,state_space,tau,P,(n1*n2))
+    theta_pi, u_pi = inv_pendulum.generate_trajectory(in_loc,init_state,PI_policy,10,state_space,tau,P,(n1*n2),U)
     inv_pendulum.load_trajectory(theta_pi, u_pi)
     inv_pendulum.start()
 
@@ -366,7 +370,7 @@ if __name__ == '__main__':
     plt.ylabel('Angle')
     # plt.title('Policy Iteration')
 
-    plt.suptitle('Angle and control input plot w.r.t.Time')
+    plt.suptitle('Angle and control input plot w.r.t.Time. Initial State: '+ str(init_state))
     plt.show()
 
         
