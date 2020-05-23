@@ -111,10 +111,10 @@ class InvertedPendulum(EnvAnimate):
         pass
         
     
-    def cost(self,X,u):
+    def cost(self,X,u): # Cost Function
         return (1-np.exp(k*(np.cos(X[0])-1))+ (0.5*r*u*u) )
     
-    def wrap(self, angles):
+    def wrap(self, angles): # Angle Wrapping
         n= int(np.abs((angles/np.pi)))
         if(n%2==0):
             angles=angles-(n*(np.pi)*np.sign(angles))
@@ -122,21 +122,21 @@ class InvertedPendulum(EnvAnimate):
             angles= angles-(n+1)*np.pi*(np.sign(angles))
         return angles
     
-    def f_x_u(self,X,u):
+    def f_x_u(self,X,u): # Motion Model
         return np.vstack(( X[1], (a*np.sin(X[0]))-(b*X[1])+u))
     
-    def loc1(self,x1,x2,len_x1,len_x2):
+    def loc1(self,x1,x2,len_x1,len_x2): # Just a auxilliary Function, not used currently
         l=(x2*len_x1)+(x1)
         return l
 
-    def Build_MDP(self, x1,x2,U,cov1,state_space):
+    def Build_MDP(self, x1,x2,U,cov1,state_space): # Function to build the MDP
         print('Building the MDP Model')
         
         len_x1=len(x1)
         len_x2=len(x2)
         nx=len_x1*len_x2 # Number of States
         nu=len(U) # Number of actions
-        P=np.zeros((nx,nx,nu),dtype=np.float16)
+        P=np.zeros((nx,nx,nu),dtype=np.float16) # Initialize transition Matrix
         L=np.zeros((nx,nu))
 
         # Build MDP
@@ -144,18 +144,18 @@ class InvertedPendulum(EnvAnimate):
         for theta in (x1):
             for vel in (x2):
                 for k,action in enumerate(U):
-                    curr_state=np.array([theta,vel])
-                    
-                    x_next= curr_state.reshape(2,1) +(self.f_x_u(curr_state,action)*tau)
-                    if(x_next[1]>v_max):
+                    curr_state=np.array([theta,vel]) # Get Current State
+                    x_next= curr_state.reshape(2,1) +(self.f_x_u(curr_state,action)*tau) # Get the next state mean
+                    # Trim the velocity, if it goes out of bound
+                    if(x_next[1]>v_max): 
                         x_next[1]=v_max
                     if(x_next[1]<-v_max):
                         x_next[1]=-v_max
-                    x_next[0]=self.wrap(x_next[0])
+                    x_next[0]=self.wrap(x_next[0])  # Wrap the angles
 
-                    P[e,:,k]=MVN.pdf(state_space,mean=x_next.T[0],cov=cov1)
-                    P[e,:,k]=P[e,:,k]/np.sum(P[e,:,k])
-                    L[ e,k]=(self.cost(curr_state,action)*tau)
+                    P[e,:,k]=MVN.pdf(state_space,mean=x_next.T[0],cov=cov1) # Fit a gaussian on the next state mean
+                    P[e,:,k]=P[e,:,k]/np.sum(P[e,:,k]) # Normalize and Store
+                    L[ e,k]=(self.cost(curr_state,action)*tau) # Building the cost matrix
                 e=e+1
         return P,L
 
@@ -165,7 +165,6 @@ class InvertedPendulum(EnvAnimate):
         len_x1=len(x1)
         len_x2=len(x2)
         nx=len_x1*len_x2 # Number of States
-        
         gamma=gamma1
         v=np.zeros((nx,1))
         H=np.zeros((nx,len(U)))
@@ -179,18 +178,18 @@ class InvertedPendulum(EnvAnimate):
                 # plt.plot(H[:,i])
                 # plt.show()
                 #  print(H)
-            policy=np.argmin(H,axis=1)
-            v=(np.min(H,axis=1)).reshape(nx,1)
+            policy=np.argmin(H,axis=1) # Extract the Policy
+            v=(np.min(H,axis=1)).reshape(nx,1) # update Value function
             
-            # sns.heatmap(v.reshape(len_x2,len_x1),linewidths=0.5)
+            # sns.heatmap(v.reshape(len_x2,len_x1),yticklabels=np.round(x2,2),xticklabels=np.round(x1,2))
             # plt.show()
     
-            if(np.sum((v-v_old)**2) <0.000001):
+            if(np.sum((v-v_old)**2) <0.000001): # Check if the value function converges
                 break
             itr=itr+1
         print(itr)
 
-        # sns.heatmap(v.reshape(len_x1,len_x2).T,linewidths=0.5)
+        # sns.heatmap(v.reshape(len_x1,len_x2).T,yticklabels=np.round(x2,2),xticklabels=np.round(x1,2))
         # plt.show()
 
         V_x, VI_policy = v, policy
@@ -204,7 +203,7 @@ class InvertedPendulum(EnvAnimate):
         len_x2=len(x2)
         nx=len_x1*len_x2
         nu=len(U)
-        policy=np.ones((nx,1))*np.round((nu+1)/2)
+        policy=np.ones((nx,1))*np.round((nu+1)/2) # Define a random Policy
         PP= np.zeros((nx,nx))
         LL= np.zeros((nx,1))
         H=np.zeros((nx,nu))
@@ -218,92 +217,84 @@ class InvertedPendulum(EnvAnimate):
                 PP[i,:]=P[i,:,int(policy[i]) ]
                 LL[i]=L[i,int(policy[i])]
 
-            v=np.linalg.inv(np.eye(nx)-(gamma*(PP)))@LL
+            v=np.linalg.inv(np.eye(nx)-(gamma*(PP)))@LL # Get intermediate value of value fuction
 
             for j in range(len(U)):
                 H[:,j]=(L[:,j]+(gamma*P[:,:,j]@ v).reshape(nx))
 
-            policy=np.argmin(H,axis=1)
-            v=(np.min(H,axis=1)).reshape(nx,1)
-            if(np.sum((v-v_old)**2) <0.00001):
+            policy=np.argmin(H,axis=1) # Extract Policy
+            v=(np.min(H,axis=1)).reshape(nx,1) # Update the value Funtion
+            # sns.heatmap(v.reshape(len_x1,len_x2).T,yticklabels=np.round(x2,2),xticklabels=np.round(x1,2))
+            # plt.show()
+            if(np.sum((v-v_old)**2) <0.00001): # Check if the value function converges
                 break
                 
             itr=itr+1
         print(itr)
-        # sns.heatmap(v.reshape(len_x1,len_x2).T,linewidths=0.5)
+        # sns.heatmap(v.reshape(len_x1,len_x2).T,linewidths=0.5,yticklabels=np.round(x2,2),xticklabels=np.round(x1,2))
         # plt.show()
         V_x, PI_policy = v, policy
         return V_x, PI_policy,
     
     def generate_trajectory(self, in_loc, init_state, policy, t,states,tau,P,n_states,U):
         print('Generating Trajectory')
-        loc=in_loc
+        loc=in_loc  # Make a copy of initial state location on state space matrix
         angle=[]
         ctrl=[]
         while(t>0):  
             t-=tau
-            theta =states[loc,0]
-            angle.append(theta)
+            theta =states[loc,0] # Get the angle corresponding to the state
+            angle.append(theta) # Save to angle lisy
 
-            u1= policy[loc]
-            ctrl.append(U[u1])
-    
-            loc=np.random.choice(range(n_states),1,p=(P[loc,:,u1]))[0]
+            u1= policy[loc] # Get the policy corresponding to the state
+            ctrl.append(U[u1]) # Get the control input Magnitude
+            
+            # Get the next state space location using the Transiton Probability matrix and update the loc variable.
+            loc=np.random.choice(range(n_states),1,p=(P[loc,:,u1]))[0] 
         
+        # Interpolate to Continuous Space
         f=interp1d(range(len(ctrl)),ctrl,kind='cubic',fill_value="extrapolate")
         ctrl_cont=np.linspace(0,len(ctrl),1000)
 
         f2=interp1d(range(len(angle)),angle,kind='cubic',fill_value="extrapolate")
         angle_cont=np.linspace(0,len(angle),1000)
-        # theta, u = f_theta(w), f_u(w)
+        
         theta,u= f2(angle_cont),f(ctrl_cont)
-        return theta, u
+        return theta, u 
     
 
 if __name__ == '__main__':
 
     #-----------Parameters----------------------
 
-    tau=0.1
-    # n2=8 # x2 discreet
-    v_max= 3  #3 
-    u_max= 3
-    # goal=np.zeros((0,0))
+    tau=0.1 
+    v_max= 3  # Maximum Value of Velocity
+    u_max= 3  # Maximum Value of Control Input
 
-    n_u=29 # Num of controlls workred: 10
-    n1= 29  #30  #101  # 101# 151 #101 # x1 discreet angle worked: 101, 151
-    n2= 29  #30#101 # 31#41   #round ((tau*(2*v_max))/((2*np.pi)/n1))+1 # x2 discreet. worked= 31,41
-    k=4 # damping ratio, 0.1
-    r=0.01 #, 1
-    a=1 # g/L, 1
-    b=0.01 # k/m, 0.1
+    n_u=31 # Control Space Discreetization
+    n1= 101  #Angle Space Discreetization
+    n2= 31  #Velocity Space Discreetization
 
+    # Pendulum Parameters
+    k=4 
+    r=0.01 
+    a=5 
+    b=0.01 
+
+    gamma=0.9 # Discount Factor
+    cov=np.diag([0.001,0.001]) # Noise Covariance 
+
+    init_state=np.array([-np.pi,0]) # Initialize Starting State
     
-
-    gamma=0.9
-    cov=np.diag([0.001,0.001])
-    # sigma=np.array([[0.1],[0.1]])
-    dist=0.0
-    init_state=np.array([np.pi/2,0])
-    goal=[0,0]
-
-    # FLAGS to select the type of algorithm. Set the choice to 1 and the other to 0
-    # VI=0 # Value Iteration (VI)
-    # PI=0 # Policy Iteration (PI)
-
-    #---------------------------------
-
     inv_pendulum = InvertedPendulum()
-    # print(tau)
     x1=np.linspace(-np.pi,np.pi,n1) # Theta
     x2=np.linspace(-v_max,v_max,n2) # velocity
     U=np.linspace(-u_max,u_max,n_u)
-
-
     
     len_x1=len(x1)
     len_x2=len(x2)
 
+    # Initializaing State Space------------
     state_space=np.zeros(( (n1*n2),2))
     
     e=0
@@ -312,35 +303,52 @@ if __name__ == '__main__':
             state_space[e,0]=theta
             state_space[e,1]=vel
             e=e+1
+    # -------------------------------------------
 
+    # Finding nearest state to given Initial Position of pendulum
     E=np.sum((state_space-init_state)**2,axis=1) 
     in_loc=np.argmin(E)
     
     init_state=state_space[in_loc,:]
 
-    P,L=inv_pendulum.Build_MDP(x1,x2,U,cov,state_space)
+    P,L=inv_pendulum.Build_MDP(x1,x2,U,cov,state_space) # BUilding the MDP, Transition Probabilities
     
-    VI_V, VI_policy = inv_pendulum.value_iteration(P,L,x1,x2,gamma)
-    theta_vi, u_vi = inv_pendulum.generate_trajectory(in_loc,init_state,VI_policy,10,state_space,tau,P,(n1*n2),U)
-    inv_pendulum.load_trajectory(theta_vi, u_vi)
+    VI_V, VI_policy = inv_pendulum.value_iteration(P,L,x1,x2,gamma) # Performing Value Iteration
+    theta_vi, u_vi = inv_pendulum.generate_trajectory(in_loc,init_state,VI_policy,10,state_space,tau,P,(n1*n2),U) # Generating Trajectory
+    inv_pendulum.load_trajectory(theta_vi, u_vi) # Animate
     inv_pendulum.start()
 
-    PI_V, PI_policy = inv_pendulum.policy_iteration(P,L,x1,x2,U,gamma)
-    theta_pi, u_pi = inv_pendulum.generate_trajectory(in_loc,init_state,PI_policy,10,state_space,tau,P,(n1*n2),U)
-    inv_pendulum.load_trajectory(theta_pi, u_pi)
+    PI_V, PI_policy = inv_pendulum.policy_iteration(P,L,x1,x2,U,gamma) # Performing Value Iteration
+    theta_pi, u_pi = inv_pendulum.generate_trajectory(in_loc,init_state,PI_policy,10,state_space,tau,P,(n1*n2),U) # Generating Trajectory
+    inv_pendulum.load_trajectory(theta_pi, u_pi) # Animate
     inv_pendulum.start()
 
+    # Plotting all relevent Data
     plt.figure()
     plt.subplot(121)
-    sns.heatmap(VI_V.reshape(len_x1,len_x2).T)
+    sns.heatmap(VI_V.reshape(len_x1,len_x2).T,yticklabels=np.round(x2,2),xticklabels=np.round(x1,2))   
     plt.xlabel('Angle')
     plt.ylabel('Angular Velocity')
     plt.title('Value Iteration')
     plt.subplot(122)
-    sns.heatmap(PI_V.reshape(len_x1,len_x2).T)
+    sns.heatmap(PI_V.reshape(len_x1,len_x2).T,yticklabels=np.round(x2,2),xticklabels=np.round(x1,2))
     plt.xlabel('Angle')
     plt.ylabel('Angular Velocity')
     plt.title('Policy Iteration')
+    plt.suptitle('tau: ' + str(tau)+ ' v_max: ' + str(v_max)+' u_max: '+ str(u_max)+' n_u: '+str(n_u)+' n_theta: '+str(n1)+' n_vel: '+str(n2)+' k: '+ str(k)+ ' r: '+str(r)+' a: '+str(a)+' b: '+str(b)+' Gamma: '+str(gamma)+'\n Cov:'+str(cov))
+    plt.show()
+
+    plt.figure()
+    plt.subplot(121)
+    sns.heatmap(U[VI_policy].reshape(len_x1,len_x2).T)   
+    # plt.xlabel('Angle')
+    # plt.ylabel('Angular Velocity')
+    plt.title('Value Iteration (Policy Plot)')
+    plt.subplot(122)
+    sns.heatmap(U[PI_policy].reshape(len_x1,len_x2).T)
+    # plt.xlabel('Angle')
+    # plt.ylabel('Angular Velocity')
+    plt.title('Policy Iteration (Policy Plot)')
     plt.suptitle('tau: ' + str(tau)+ ' v_max: ' + str(v_max)+' u_max: '+ str(u_max)+' n_u: '+str(n_u)+' n_theta: '+str(n1)+' n_vel: '+str(n2)+' k: '+ str(k)+ ' r: '+str(r)+' a: '+str(a)+' b: '+str(b)+' Gamma: '+str(gamma)+'\n Cov:'+str(cov))
     plt.show()
 
@@ -355,7 +363,7 @@ if __name__ == '__main__':
     plt.grid()
     plt.xlabel('Time')
     plt.ylabel('Angle')
-    # plt.title('Value Iteration')
+    
 
     plt.subplot(222)
     plt.plot(u_pi)
@@ -368,8 +376,6 @@ if __name__ == '__main__':
     plt.grid()
     plt.xlabel('Time')
     plt.ylabel('Angle')
-    # plt.title('Policy Iteration')
-
     plt.suptitle('Angle and control input plot w.r.t.Time. Initial State: '+ str(init_state))
     plt.show()
 
