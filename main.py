@@ -267,22 +267,22 @@ if __name__ == '__main__':
 
     #-----------Parameters----------------------
 
-    tau=0.1 
+    tau=0.2 
     v_max= 3  # Maximum Value of Velocity
     u_max= 3  # Maximum Value of Control Input
 
     n_u=31 # Control Space Discreetization
-    n1= 101  #Angle Space Discreetization
+    n1= 31  #Angle Space Discreetization
     n2= 31  #Velocity Space Discreetization
 
     # Pendulum Parameters
-    k=4 
+    k=1
     r=0.01 
-    a=5 
+    a=1 
     b=0.01 
 
     gamma=0.9 # Discount Factor
-    cov=np.diag([0.001,0.001]) # Noise Covariance 
+    cov=np.diag([0.01,0.01])*(tau) # Noise Covariance 
 
     init_state=np.array([-np.pi,0]) # Initialize Starting State
     
