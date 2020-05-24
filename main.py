@@ -168,7 +168,7 @@ class InvertedPendulum(EnvAnimate):
         gamma=gamma1
         v=np.zeros((nx,1))
         H=np.zeros((nx,len(U)))
-
+        init_t=time.time()
         itr=1
         while True:
             v_old=v
@@ -181,14 +181,21 @@ class InvertedPendulum(EnvAnimate):
             policy=np.argmin(H,axis=1) # Extract the Policy
             v=(np.min(H,axis=1)).reshape(nx,1) # update Value function
             
-            # sns.heatmap(v.reshape(len_x2,len_x1),yticklabels=np.round(x2,2),xticklabels=np.round(x1,2))
+            # plt.figure(figsize=(8,8))
+            # sns.heatmap(v.reshape(len_x2,len_x1).T,yticklabels=np.round(x2,2),xticklabels=np.round(x1,2))
+            # plt.xlabel('Angle')
+            # plt.ylabel('Angular Velocity')
+            # plt.title('Value Iteration')
+            # plt.savefig('VI'+str(itr))
+            # plt.close()
+
             # plt.show()
     
             if(np.sum((v-v_old)**2) <0.000001): # Check if the value function converges
                 break
             itr=itr+1
         print(itr)
-
+        print(time.time()-init_t)
         # sns.heatmap(v.reshape(len_x1,len_x2).T,yticklabels=np.round(x2,2),xticklabels=np.round(x1,2))
         # plt.show()
 
@@ -208,7 +215,7 @@ class InvertedPendulum(EnvAnimate):
         LL= np.zeros((nx,1))
         H=np.zeros((nx,nu))
         v=np.zeros((nx,1))
-
+        init_t=time.time()
         itr=1
         while True:
             v_old=v
@@ -224,13 +231,21 @@ class InvertedPendulum(EnvAnimate):
 
             policy=np.argmin(H,axis=1) # Extract Policy
             v=(np.min(H,axis=1)).reshape(nx,1) # Update the value Funtion
-            # sns.heatmap(v.reshape(len_x1,len_x2).T,yticklabels=np.round(x2,2),xticklabels=np.round(x1,2))
-            # plt.show()
+
+            # plt.figure(figsize=(8,8))
+            # sns.heatmap(v.reshape(len_x2,len_x1).T,yticklabels=np.round(x2,2),xticklabels=np.round(x1,2))
+            # plt.xlabel('Angle')
+            # plt.ylabel('Angular Velocity')
+            # plt.title('Policy Iteration')
+            # plt.savefig('PI'+str(itr))
+            # plt.close()
+
             if(np.sum((v-v_old)**2) <0.00001): # Check if the value function converges
                 break
                 
             itr=itr+1
         print(itr)
+        print(time.time()-init_t)
         # sns.heatmap(v.reshape(len_x1,len_x2).T,linewidths=0.5,yticklabels=np.round(x2,2),xticklabels=np.round(x1,2))
         # plt.show()
         V_x, PI_policy = v, policy
@@ -267,7 +282,7 @@ if __name__ == '__main__':
 
     #-----------Parameters----------------------
 
-    tau=0.2 
+    tau=0.1 
     v_max= 3  # Maximum Value of Velocity
     u_max= 3  # Maximum Value of Control Input
 
@@ -276,15 +291,15 @@ if __name__ == '__main__':
     n2= 31  #Velocity Space Discreetization
 
     # Pendulum Parameters
-    k=1
+    k=4
     r=0.01 
-    a=1 
-    b=0.01 
+    a=1
+    b=0.01
 
     gamma=0.9 # Discount Factor
     cov=np.diag([0.01,0.01])*(tau) # Noise Covariance 
 
-    init_state=np.array([-np.pi,0]) # Initialize Starting State
+    init_state=np.array([np.pi,0]) # Initialize Starting State
     
     inv_pendulum = InvertedPendulum()
     x1=np.linspace(-np.pi,np.pi,n1) # Theta
